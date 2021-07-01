@@ -1,6 +1,7 @@
 /*
  * Copyright (c) 2018, Lotto <https://github.com/devLotto>
  * Copyright (c) 2019, ThatGamerBlue <thatgamerblue@gmail.com>
+ * Copyright (c) 2021, BickusDiggus <https://github.com/BickusDiggus>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,32 +27,32 @@
  */
 package net.runelite.client.plugins.entityhiderextended;
 
-import com.google.inject.Provides;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import javax.inject.Inject;
+import com.google.inject.Provides;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
+import net.runelite.api.NPC;
+import net.runelite.api.events.ClientTick;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.NpcDespawned;
 import net.runelite.api.util.Text;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginType;
 import org.pf4j.Extension;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 @Extension
 @PluginDescriptor(
-	name = "Entity Hider Extended",
-	enabledByDefault = false,
-	description = "Hide players, NPCs, and/or projectiles",
-	tags = {"npcs", "players", "projectiles"},
-	type = PluginType.UTILITY
+		name = "Entity Hider Extended",
+		enabledByDefault = false,
+		description = "Hide dead NPCs animations",
+		tags = {"npcs"}
 )
 public class EntityHiderExtendedPlugin extends Plugin
 {
@@ -67,12 +68,82 @@ public class EntityHiderExtendedPlugin extends Plugin
 		return configManager.getConfig(EntityHiderExtendedConfig.class);
 	}
 
+	private ArrayList<Integer> hiddenIndices;
+	private ArrayList<Integer> animationHiddenIndices;
+	private Set<String> hideNPCsOnDeathName;
+	private Set<Integer> hideNPCsOnDeathID;
+	private Set<Integer> hideNPCsOnAnimationID;
+	private Set<String> blacklistName;
+	private Set<Integer> blacklistID;
+
 	@Override
 	protected void startUp()
 	{
 		client.setIsHidingEntities(true);
-		client.setDeadNPCsHidden(config.hideDeadNPCs());
-		Text.fromCSV(config.hideNPCsOnDeath()).forEach(client::addHiddenNpcDeath);
+		//client.setDeadNPCsHidden(true);
+		hiddenIndices = new ArrayList<>();
+		animationHiddenIndices = new ArrayList<>();
+		updateConfig();
+	}
+
+	@Subscribe
+	public void onGameStateChanged(GameStateChanged event)
+	{
+		if (event.getGameState() == GameState.LOGGED_IN)
+		{
+			client.setIsHidingEntities(true);
+			clearHiddenNpcs();
+		}
+	}
+
+	@Override
+	protected void shutDown()
+	{
+		client.setIsHidingEntities(false);
+		//client.setDeadNPCsHidden(false);
+		clearHiddenNpcs();
+		hiddenIndices = null;
+		animationHiddenIndices = null;
+	}
+
+	@Subscribe
+	public void onClientTick(ClientTick event)
+	{
+		for (NPC npc : client.getNpcs())
+		{
+			if (npc == null)
+			{
+				continue;
+			}
+
+			if ((config.hideDeadNPCs() && npc.getHealthRatio() == 0 && npc.getName() != null && !blacklistName.contains(npc.getName().toLowerCase()) && !blacklistID.contains(npc.getId()))
+			|| (npc.getName() != null && npc.getHealthRatio() == 0 && hideNPCsOnDeathName.contains(npc.getName().toLowerCase()))
+			|| (npc.getHealthRatio() == 0 && hideNPCsOnDeathID.contains(npc.getId()))
+			|| (hideNPCsOnAnimationID.contains(npc.getAnimation())))
+			{
+				if (!hiddenIndices.contains(npc.getIndex()))
+				{
+					setHiddenNpc(npc, true);
+				}
+			}
+
+			if (animationHiddenIndices.contains(npc.getIndex()) && !hideNPCsOnAnimationID.contains(npc.getAnimation()))
+			{
+				if (hiddenIndices.contains(npc.getIndex()))
+				{
+					setHiddenNpc(npc, false);
+				}
+			}
+		}
+	}
+
+	@Subscribe
+	public void onNpcDespawned(NpcDespawned event)
+	{
+		if (hiddenIndices.contains(event.getNpc().getIndex()))
+		{
+			setHiddenNpc(event.getNpc(), false);
+		}
 	}
 
 	@Subscribe
@@ -82,58 +153,96 @@ public class EntityHiderExtendedPlugin extends Plugin
 		{
 			return;
 		}
-			client.setIsHidingEntities(true);
-			client.setDeadNPCsHidden(config.hideDeadNPCs());
-
-			final Set<Integer> blacklist = new HashSet<>();
-
-			for (String s : Text.COMMA_SPLITTER.split(config.blacklistDeadNpcs()))
-			{
-				try
-				{
-					blacklist.add(Integer.parseInt(s));
-				}
-				catch (NumberFormatException ignored)
-				{
-				}
-
-			}
-
-			client.setBlacklistDeadNpcs(blacklist);
-
-			if (event.getOldValue() == null || event.getNewValue() == null)
-			{
-				return;
-			}
-			
-			if (event.getKey().equals("hideNPCsOnDeath"))
-			{
-				List<String> oldList = Text.fromCSV(event.getOldValue());
-				List<String> newList = Text.fromCSV(event.getNewValue());
-
-				ArrayList<String> removed = oldList.stream().filter(s -> !newList.contains(s)).collect(Collectors.toCollection(ArrayList::new));
-				ArrayList<String> added = newList.stream().filter(s -> !oldList.contains(s)).collect(Collectors.toCollection(ArrayList::new));
-
-				removed.forEach(client::removeHiddenNpcDeath);
-				added.forEach(client::addHiddenNpcDeath);
-			}
-		
+		client.setIsHidingEntities(true);
+		updateConfig();
 	}
 
-	@Subscribe
-	public void onGameStateChanged(GameStateChanged event)
+	private void updateConfig()
 	{
-		if (event.getGameState() == GameState.LOGGED_IN)
+		hideNPCsOnDeathName = new HashSet<>();
+		hideNPCsOnDeathID = new HashSet<>();
+		hideNPCsOnAnimationID = new HashSet<>();
+		blacklistID = new HashSet<>();
+		blacklistName = new HashSet<>();
+
+		for (String s : Text.COMMA_SPLITTER.split(config.hideNPCsOnDeathName().toLowerCase()))
 		{
-			client.setIsHidingEntities(true);
+			hideNPCsOnDeathName.add(s);
+		}
+		for (String s : Text.COMMA_SPLITTER.split(config.hideNPCsOnDeathID()))
+		{
+			try
+			{
+				hideNPCsOnDeathID.add(Integer.parseInt(s));
+			}
+			catch (NumberFormatException ignored)
+			{
+			}
+
+		}
+		for (String s : Text.COMMA_SPLITTER.split(config.hideNPCsOnAnimationID()))
+		{
+			try
+			{
+				hideNPCsOnAnimationID.add(Integer.parseInt(s));
+			}
+			catch (NumberFormatException ignored)
+			{
+			}
+
+		}
+		for (String s : Text.COMMA_SPLITTER.split(config.blacklistDeadNpcsName().toLowerCase()))
+		{
+			blacklistName.add(s);
+		}
+		for (String s : Text.COMMA_SPLITTER.split(config.blacklistDeadNpcsID()))
+		{
+			try
+			{
+				blacklistID.add(Integer.parseInt(s));
+			}
+			catch (NumberFormatException ignored)
+			{
+			}
+
 		}
 	}
 
-	@Override
-	protected void shutDown()
+	private void setHiddenNpc(NPC npc, boolean hidden)
 	{
-		client.setIsHidingEntities(false);
-		client.setDeadNPCsHidden(false);
-		Text.fromCSV(config.hideNPCsOnDeath()).forEach(client::removeHiddenNpcDeath);
+
+		List<Integer> newHiddenNpcIndicesList = client.getHiddenNpcIndices();
+		if (hidden)
+		{
+			newHiddenNpcIndicesList.add(npc.getIndex());
+			hiddenIndices.add(npc.getIndex());
+			if (hideNPCsOnAnimationID.contains(npc.getAnimation()))
+			{
+				animationHiddenIndices.add(npc.getIndex());
+			}
+		}
+		else
+		{
+			if (newHiddenNpcIndicesList.contains(npc.getIndex()))
+			{
+				newHiddenNpcIndicesList.remove((Integer) npc.getIndex());
+				hiddenIndices.remove((Integer) npc.getIndex());
+				animationHiddenIndices.remove((Integer) npc.getIndex());
+			}
+		}
+		client.setHiddenNpcIndices(newHiddenNpcIndicesList);
+
+	}
+
+	private void clearHiddenNpcs()
+	{
+		if (!hiddenIndices.isEmpty())
+		{
+			List<Integer> newHiddenNpcIndicesList = client.getHiddenNpcIndices();
+			newHiddenNpcIndicesList.removeAll(hiddenIndices);
+			client.setHiddenNpcIndices(newHiddenNpcIndicesList);
+			hiddenIndices.clear();
+			animationHiddenIndices.clear();
+		}
 	}
 }

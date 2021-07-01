@@ -1,8 +1,10 @@
 package net.runelite.client.plugins.nightmare;
 
 import com.google.inject.Provides;
+import java.awt.Polygon;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -10,27 +12,29 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.AccessLevel;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Actor;
+import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameObject;
 import net.runelite.api.GameState;
+import net.runelite.api.GraphicsObject;
 import net.runelite.api.NPC;
 import net.runelite.api.Player;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.events.AnimationChanged;
+import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameObjectDespawned;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
-import net.runelite.api.events.NpcDefinitionChanged;
+import net.runelite.api.events.NpcChanged;
 import net.runelite.api.events.ProjectileSpawned;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginType;
 import net.runelite.client.ui.overlay.OverlayManager;
 import org.pf4j.Extension;
 
@@ -39,8 +43,7 @@ import org.pf4j.Extension;
 	name = "Nightmare of Ashihama",
 	enabledByDefault = false,
 	description = "Show what prayer to use and which tiles to avoid",
-	tags = {"bosses", "combat", "nm", "overlay", "nightmare", "pve", "pvm", "ashihama"},
-	type = PluginType.PVM
+	tags = {"bosses", "combat", "nm", "overlay", "nightmare", "pve", "pvm", "ashihama"}
 )
 
 @Slf4j
@@ -50,64 +53,67 @@ public class NightmarePlugin extends Plugin
 	// Nightmare's attack animations
 	private static final int NIGHTMARE_HUSK_SPAWN = 8565;
 	private static final int NIGHTMARE_CHARGE_1 = 8597;
-	private static final int NIGHTMARE_SHADOW_SPAWN = 8598;
 	private static final int NIGHTMARE_CURSE = 8599;
-	private static final int NIGHTMARE_QUADRANTS = 8601;
-	private static final int NIGHTMARE_SLEEP_DAMAGE = 8604;
-	private static final int NIGHTMARE_PARASITE_TOSS = 8605;
 	private static final int NIGHTMARE_PARASITE_TOSS2 = 8606;
-	private static final int NIGHTMARE_CHARGE_TELEPORT = 8607;
 	private static final int NIGHTMARE_CHARGE_2 = 8609;
-	private static final int NIGHTMARE_SPAWN = 8611;
-	private static final int NIGHTMARE_DEATH = 8612;
 	private static final int NIGHTMARE_MELEE_ATTACK = 8594;
 	private static final int NIGHTMARE_RANGE_ATTACK = 8596;
 	private static final int NIGHTMARE_MAGIC_ATTACK = 8595;
 	private static final int NIGHTMARE_PRE_MUSHROOM = 37738;
 	private static final int NIGHTMARE_MUSHROOM = 37739;
+	private static final int NIGHTMARE_SHADOW = 1767;   // graphics object
 
+	private static final LocalPoint MIDDLE_LOCATION = new LocalPoint(6208, 8128);
 	private static final List<Integer> INACTIVE_TOTEMS = Arrays.asList(9434, 9437, 9440, 9443);
-
+	@Getter(AccessLevel.PACKAGE)
+	private final Map<Integer, MemorizedTotem> totems = new HashMap<>();
+	@Getter(AccessLevel.PACKAGE)
+	private final Map<LocalPoint, GameObject> spores = new HashMap<>();
+	@Getter(AccessLevel.PACKAGE)
+	private final Map<Polygon, Player> huskTarget = new HashMap<>();
+	@Getter(AccessLevel.PACKAGE)
+	private final Map<Integer, Player> parasiteTargets = new HashMap<>();
 	@Inject
 	private Client client;
-
 	@Inject
 	private NightmareConfig config;
-
 	@Inject
 	private OverlayManager overlayManager;
-
 	@Inject
-	private NightmarePrayerOverlay prayerOverlay;
-
+	private NightmarePrayerInfoBox prayerInfoBox;
 	@Nullable
 	@Getter(AccessLevel.PACKAGE)
 	private NightmareAttack pendingNightmareAttack;
-
 	@Nullable
 	@Getter(AccessLevel.PACKAGE)
 	private NPC nm;
-
-	@Getter(AccessLevel.PACKAGE)
-	private final Map<Integer, MemorizedTotem> totems = new HashMap<>();
-
-	@Getter(AccessLevel.PACKAGE)
-	private final Map<LocalPoint, GameObject> spores = new HashMap<>();
-
-	@Getter(AccessLevel.PACKAGE)
-	private final Map<Integer, Player> parasiteTargets = new HashMap<>();
-
 	@Getter(AccessLevel.PACKAGE)
 	private boolean inFight;
 
 	private boolean cursed;
-	private int attacksSinceCurse;
 
 	@Getter(AccessLevel.PACKAGE)
 	private int ticksUntilNextAttack = 0;
 
 	@Getter(AccessLevel.PACKAGE)
 	private int ticksUntilParasite = 0;
+
+	@Getter(AccessLevel.PACKAGE)
+	private boolean nightmareCharging = false;
+
+	@Getter(AccessLevel.PACKAGE)
+	private boolean shadowsSpawning = false;
+
+	@Getter(AccessLevel.PACKAGE)
+	private final Map<GraphicsObject, Integer> nightmareShadows = new HashMap<>();
+
+	@Getter(AccessLevel.PACKAGE)
+	@Setter
+	private boolean flash = false;
+	@Inject
+	private NightmareOverlay overlay;
+	@Inject
+	private NightmarePrayerOverlay prayerOverlay;
 
 	public NightmarePlugin()
 	{
@@ -120,14 +126,12 @@ public class NightmarePlugin extends Plugin
 		return configManager.getConfig(NightmareConfig.class);
 	}
 
-	@Inject
-	private NightmareOverlay overlay;
-
 	@Override
 	protected void startUp()
 	{
 		overlayManager.add(overlay);
 		overlayManager.add(prayerOverlay);
+		overlayManager.add(prayerInfoBox);
 		reset();
 	}
 
@@ -136,6 +140,7 @@ public class NightmarePlugin extends Plugin
 	{
 		overlayManager.remove(overlay);
 		overlayManager.remove(prayerOverlay);
+		overlayManager.remove(prayerInfoBox);
 		reset();
 	}
 
@@ -144,13 +149,17 @@ public class NightmarePlugin extends Plugin
 		inFight = false;
 		nm = null;
 		pendingNightmareAttack = null;
+		nightmareCharging = false;
+		shadowsSpawning = false;
 		cursed = false;
-		attacksSinceCurse = 0;
+		flash = false;
 		ticksUntilNextAttack = 0;
 		ticksUntilParasite = 0;
 		totems.clear();
 		spores.clear();
+		huskTarget.clear();
 		parasiteTargets.clear();
+		nightmareShadows.clear();
 	}
 
 	@Subscribe
@@ -194,22 +203,23 @@ public class NightmarePlugin extends Plugin
 		}
 
 		var projectile = event.getProjectile();
-
-		if (projectile.getId() == 1770)
+		Player targetPlayer;
+		switch (projectile.getId())
 		{
-			Player targetPlayer = (Player) projectile.getInteracting();
-			parasiteTargets.putIfAbsent(targetPlayer.getPlayerId(), targetPlayer);
+			case 1770:
+				targetPlayer = (Player) projectile.getInteracting();
+				parasiteTargets.putIfAbsent(targetPlayer.getPlayerId(), targetPlayer);
+				break;
+			case 1781:
+				targetPlayer = (Player) projectile.getInteracting();
+				huskTarget.putIfAbsent(targetPlayer.getCanvasTilePoly(), targetPlayer);
+				break;
 		}
 	}
 
 	@Subscribe
 	public void onAnimationChanged(AnimationChanged event)
 	{
-		if (!inFight || nm == null)
-		{
-			return;
-		}
-
 		Actor actor = event.getActor();
 		if (!(actor instanceof NPC))
 		{
@@ -217,38 +227,54 @@ public class NightmarePlugin extends Plugin
 		}
 
 		NPC npc = (NPC) actor;
-		int id = npc.getId();
-		int animationId = npc.getAnimation();
 
+		// this will trigger once when the fight begins
+		if (nm == null && npc.getName() != null && (npc.getName().equalsIgnoreCase("The Nightmare") || npc.getName().equalsIgnoreCase("Phosani's Nightmare")))
+		{
+			//reset everything
+			reset();
+			nm = npc;
+			inFight = true;
+		}
+		
+		if (!inFight || nm == null)
+		{
+			return;
+		}
+		
+		int animationId = npc.getAnimation();
+		
 		if (animationId == NIGHTMARE_MAGIC_ATTACK)
 		{
 			ticksUntilNextAttack = 7;
-			attacksSinceCurse++;
 			pendingNightmareAttack = cursed ? NightmareAttack.CURSE_MAGIC : NightmareAttack.MAGIC;
 		}
 		else if (animationId == NIGHTMARE_MELEE_ATTACK)
 		{
 			ticksUntilNextAttack = 7;
-			attacksSinceCurse++;
 			pendingNightmareAttack = cursed ? NightmareAttack.CURSE_MELEE : NightmareAttack.MELEE;
 		}
 		else if (animationId == NIGHTMARE_RANGE_ATTACK)
 		{
 			ticksUntilNextAttack = 7;
-			attacksSinceCurse++;
 			pendingNightmareAttack = cursed ? NightmareAttack.CURSE_RANGE : NightmareAttack.RANGE;
 		}
 		else if (animationId == NIGHTMARE_CURSE)
 		{
 			cursed = true;
-			attacksSinceCurse = 0;
+		}
+		else if (!npc.getLocalLocation().equals(MIDDLE_LOCATION) && animationId == NIGHTMARE_CHARGE_2)
+		{
+			nightmareCharging = true;
+		}
+		else if (animationId == NIGHTMARE_CHARGE_1)
+		{
+			nightmareCharging = false;
 		}
 
-		if (cursed && attacksSinceCurse == 5)
+		if (animationId != NIGHTMARE_HUSK_SPAWN && !huskTarget.isEmpty())
 		{
-			//curse is removed when she phases, or does 5 attacks
-			cursed = false;
-			attacksSinceCurse = -1;
+			huskTarget.clear();
 		}
 
 		if (animationId == NIGHTMARE_PARASITE_TOSS2)
@@ -258,29 +284,13 @@ public class NightmarePlugin extends Plugin
 	}
 
 	@Subscribe
-	public void onNpcDefinitionChanged(NpcDefinitionChanged event)
+	public void onNpcChanged(NpcChanged event)
 	{
 		final NPC npc = event.getNpc();
 
 		if (npc == null)
 		{
 			return;
-		}
-
-		//this will trigger once when the fight begins
-		if (npc.getId() == 9432)
-		{
-			//reset everything
-			reset();
-			nm = npc;
-			inFight = true;
-		}
-
-		//if ID changes to 9431 (3rd phase) and is cursed, remove the curse
-		if (cursed && npc.getId() == 9431)
-		{
-			cursed = false;
-			attacksSinceCurse = -1;
 		}
 
 		//if npc is in the totems map, update its phase
@@ -293,6 +303,27 @@ public class NightmarePlugin extends Plugin
 			//else if the totem is not in the totem array and it is an inactive totem, add it to the totem map.
 			totems.putIfAbsent(npc.getIndex(), new MemorizedTotem(npc));
 		}
+	}
+
+	@Subscribe
+	private void onChatMessage(ChatMessage event)
+	{
+
+		if (!inFight || nm == null || event.getType() != ChatMessageType.GAMEMESSAGE)
+		{
+			return;
+		}
+
+		if (event.getMessage().contains("The Nightmare has impregnated you with a deadly parasite!"))
+		{
+			flash = true;
+		}
+
+		if (event.getMessage().toLowerCase().contains("you feel the effects of the nightmare's curse wear off."))
+		{
+			cursed = false;
+		}
+
 	}
 
 	@Subscribe
@@ -315,8 +346,8 @@ public class NightmarePlugin extends Plugin
 			return;
 		}
 
-		//if nightmare's id is 9433, the fight has ended and everything should be reset
-		if (nm.getId() == 9433)
+		//the fight has ended and everything should be reset
+		if (nm.getId() == 378 || nm.getId() == 377)
 		{
 			reset();
 		}
@@ -336,29 +367,36 @@ public class NightmarePlugin extends Plugin
 		{
 			pendingNightmareAttack = null;
 		}
-	}
 
-	private boolean isNightmareNpc(int id)
-	{
-		return id >= 9425 && id <= 9433;
-	}
-
-	@Subscribe
-	public void onConfigChanged(ConfigChanged event)
-	{
-		if (!event.getGroup().equals("nightmareOfAshihama"))
+		if (config.highlightShadows())
 		{
-			return;
-		}
+			boolean doShadowsExist = false;
+			for (GraphicsObject graphicsObject : client.getGraphicsObjects())
+			{
+				if (graphicsObject.getId() == NIGHTMARE_SHADOW)
+				{
+					shadowsSpawning = true;
+					doShadowsExist = true;
+					if (!nightmareShadows.containsKey(graphicsObject))
+					{
+						nightmareShadows.put(graphicsObject, 5);
+					}
+				}
+			}
+			if (!doShadowsExist)
+			{
+				shadowsSpawning = false;
+			}
 
-		if (event.getKey().equals("mirrorMode"))
-		{
-			overlay.determineLayer();
-			prayerOverlay.determineLayer();
-			overlayManager.remove(overlay);
-			overlayManager.remove(prayerOverlay);
-			overlayManager.add(overlay);
-			overlayManager.add(prayerOverlay);
+			for (Iterator<GraphicsObject> it = nightmareShadows.keySet().iterator(); it.hasNext(); )
+			{
+				GraphicsObject key = it.next();
+				nightmareShadows.replace(key, nightmareShadows.get(key) - 1);
+				if (nightmareShadows.get(key) <= -5)
+				{
+					it.remove();
+				}
+			}
 		}
 	}
 }

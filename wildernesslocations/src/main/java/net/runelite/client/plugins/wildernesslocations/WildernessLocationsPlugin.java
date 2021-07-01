@@ -25,6 +25,7 @@
 package net.runelite.client.plugins.wildernesslocations;
 
 import com.google.inject.Provides;
+import com.openosrs.client.game.WorldLocation;
 import javax.inject.Inject;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -38,16 +39,13 @@ import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.VarClientStrChanged;
-import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.widgets.WidgetID;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.game.WorldLocation;
 import net.runelite.client.input.KeyManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginType;
 import net.runelite.client.ui.overlay.OverlayManager;
 import net.runelite.client.util.HotkeyListener;
 import org.pf4j.Extension;
@@ -57,8 +55,7 @@ import org.pf4j.Extension;
 	name = "Wild Locations",
 	enabledByDefault = false,
 	description = "Indicates the players current location in the wild",
-	tags = {"Wildy", "Wilderness Location", "location", "loc", "pvp", "pklite"},
-	type = PluginType.PVP
+	tags = {"Wildy", "Wilderness Location", "location", "loc", "pvp", "pklite"}
 )
 @Slf4j
 public class WildernessLocationsPlugin extends Plugin
@@ -164,7 +161,7 @@ public class WildernessLocationsPlugin extends Plugin
 
 	private boolean inClanChat()
 	{
-		return client.getWidget(WidgetInfo.FRIENDS_CHAT_TITLE) != null;
+		return client.getWidget(WidgetID.FRIENDS_CHAT_GROUP_ID, 1) != null;
 	}
 
 	private void sendMessage(String text)
@@ -199,24 +196,5 @@ public class WildernessLocationsPlugin extends Plugin
 		}
 		sendMessage("/World: " + client.getWorld() + " Location: " + location);
 		currentCooldown = 30;
-	}
-
-	@Subscribe
-	public void onConfigChanged(ConfigChanged event)
-	{
-		if (!event.getGroup().equals("wildernesslocations"))
-		{
-			return;
-		}
-
-		if (event.getKey().equals("mirrorMode"))
-		{
-			overlay.determineLayer();
-			wildernessLocationsMapOverlay.determineLayer();
-			overlayManager.remove(wildernessLocationsMapOverlay);
-			overlayManager.remove(overlay);
-			overlayManager.add(overlay);
-			overlayManager.add(wildernessLocationsMapOverlay);
-		}
 	}
 }

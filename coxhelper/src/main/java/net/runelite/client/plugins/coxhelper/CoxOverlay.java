@@ -26,6 +26,7 @@
 package net.runelite.client.plugins.coxhelper;
 
 import com.google.common.collect.ImmutableSet;
+import com.openosrs.client.graphics.ModelOutlineRenderer;
 import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -59,17 +60,19 @@ public class CoxOverlay extends Overlay
 	private final CoxPlugin plugin;
 	private final CoxConfig config;
 	private final Olm olm;
+	private final ModelOutlineRenderer outliner;
 
 	@Inject
-	private CoxOverlay(final Client client, final CoxPlugin plugin, final CoxConfig config, final Olm olm)
+	private CoxOverlay(final Client client, final CoxPlugin plugin, final CoxConfig config, final Olm olm, ModelOutlineRenderer outliner)
 	{
 		this.client = client;
 		this.plugin = plugin;
 		this.config = config;
 		this.olm = olm;
-		this.setPosition(OverlayPosition.DYNAMIC);
-		this.determineLayer();
-		this.setPriority(OverlayPriority.HIGH);
+		this.outliner = outliner;
+		setPosition(OverlayPosition.DYNAMIC);
+		setLayer(OverlayLayer.ABOVE_SCENE);
+		setPriority(OverlayPriority.HIGH);
 	}
 
 	@Override
@@ -283,6 +286,31 @@ public class CoxOverlay extends Overlay
 			{
 				GameObject head = this.olm.getHead();
 
+				if (this.config.olmPShowPhase())
+				{
+					if (head != null)
+					{
+						Color color = null;
+						switch (this.olm.getPhaseType())
+						{
+							case ACID:
+								color = Color.GREEN;
+								break;
+							case CRYSTAL:
+								color = Color.MAGENTA;
+								break;
+							case FLAME:
+								color = Color.RED;
+								break;
+						}
+						if (color != null)
+						{
+							outliner.drawOutline(head, 2, color);
+						}
+					}
+				}
+
+
 				if (this.config.olmTick())
 				{
 					if (head != null)
@@ -425,17 +453,4 @@ public class CoxOverlay extends Overlay
 		}
 		return big;
 	}
-
-	public void determineLayer()
-	{
-		if (this.config.mirrorMode())
-		{
-			this.setLayer(OverlayLayer.AFTER_MIRROR);
-		}
-		if (!this.config.mirrorMode())
-		{
-			this.setLayer(OverlayLayer.ABOVE_SCENE);
-		}
-	}
-
 }

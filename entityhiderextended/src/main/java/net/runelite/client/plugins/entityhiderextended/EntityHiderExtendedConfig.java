@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2018, Lotto <https://github.com/devLotto>
+ * Copyright (c) 2021, BickusDiggus <https://github.com/BickusDiggus>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,29 +29,16 @@ package net.runelite.client.plugins.entityhiderextended;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
-import net.runelite.client.config.ConfigTitleSection;
-import net.runelite.client.config.Title;
 
 @ConfigGroup("entityhiderextended")
 public interface EntityHiderExtendedConfig extends Config
 {
-	@ConfigTitleSection(
-		keyName = "npcsTitle",
-		name = "NPCs",
-		description = "",
-		position = 0
-	)
-	default Title npcsTitle()
-	{
-		return new Title();
-	}
 
 	@ConfigItem(
-		position = 15,
+		position = 0,
 		keyName = "hideDeadNPCs",
-		name = "Hide Dead NPCs",
-		description = "Configures whether or not NPCs that just died are hidden",
-		titleSection = "npcsTitle"
+		name = "Hide ALL Dead NPCs",
+		description = "Configures whether or not NPCs that just died are hidden"
 	)
 	default boolean hideDeadNPCs()
 	{
@@ -58,27 +46,56 @@ public interface EntityHiderExtendedConfig extends Config
 	}
 
 	@ConfigItem(
-		position = 16,
-		keyName = "hideNPCsOnDeath",
-		name = "Hide NPCs On Death",
-		description = "Configures which NPCs to hide when they die",
-		titleSection = "npcsTitle"
+		position = 1,
+		keyName = "hideNPCsOnDeathName",
+		name = "Hide NPCs On Death (Name)",
+		description = "Configures which NPCs by Name to hide when they die"
 	)
-	default String hideNPCsOnDeath()
+	default String hideNPCsOnDeathName()
 	{
 		return "";
 	}
 
 	@ConfigItem(
-		position = 17,
-		keyName = "blacklistDeadNpcs",
-		name = "Hide on Death Blacklist",
-		description = "Configures which NPCs NOT to hide when they die",
-		titleSection = "npcsTitle",
-		hidden = true,
-		unhide = "hideDeadNPCs"
+		position = 2,
+		keyName = "hideNPCsOnDeathID",
+		name = "Hide NPCs On Death (ID)",
+		description = "Configures which NPCs by ID to hide when they die"
 	)
-	default String blacklistDeadNpcs()
+	default String hideNPCsOnDeathID()
+	{
+		return "";
+	}
+
+	@ConfigItem(
+		position = 3,
+		keyName = "hideNPCsOnAnimationID",
+		name = "Hide NPCs On Animation (ID)",
+		description = "Configures which NPCs by Animation ID to hide"
+	)
+	default String hideNPCsOnAnimationID()
+	{
+		return "";
+	}
+
+	@ConfigItem(
+		position = 4,
+		keyName = "blacklistDeadNpcsName",
+		name = "Hide ALL Dead Blacklist (Name)",
+		description = "Configures which NPCs by Name NOT to hide when they die"
+	)
+	default String blacklistDeadNpcsName()
+	{
+		return "";
+	}
+
+	@ConfigItem(
+		position = 5,
+		keyName = "blacklistDeadNpcsID",
+		name = "Hide ALL Dead Blacklist (ID)",
+		description = "Configures which NPCs by ID NOT to hide when they die"
+	)
+	default String blacklistDeadNpcsID()
 	{
 		return "";
 	}

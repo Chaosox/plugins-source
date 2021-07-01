@@ -25,7 +25,7 @@ import ProjectVersions.rlVersion
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-version = "0.0.14"
+version = "5.0.6"
 
 project.extra["PluginName"] = "Menu Entry Swapper Extended"
 project.extra["PluginDescription"] = "Change the default option that is displayed when hovering over objects"
@@ -45,6 +45,7 @@ dependencies {
     compileOnly(Libraries.lombok)
     compileOnly(Libraries.pf4j)
     compileOnly(Libraries.rxjava)
+	compileOnly(group = "net.sf.jopt-simple", name = "jopt-simple", version = "5.0.4")
 }
 
 tasks {

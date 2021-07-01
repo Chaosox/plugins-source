@@ -52,11 +52,10 @@ import net.runelite.api.events.ProjectileSpawned;
 import net.runelite.client.Notifier;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.PluginType;
 import net.runelite.client.ui.overlay.OverlayManager;
+import org.apache.commons.lang3.ArrayUtils;
 import org.pf4j.Extension;
 import static net.runelite.client.plugins.aoewarnings.AoeWarningConfig.*;
 
@@ -65,8 +64,7 @@ import static net.runelite.client.plugins.aoewarnings.AoeWarningConfig.*;
 	name = "AoE Warnings",
 	enabledByDefault = false,
 	description = "Shows the final destination for AoE Attack projectiles",
-	tags = {"bosses", "combat", "pve", "overlay"},
-	type = PluginType.PVM
+	tags = {"bosses", "combat", "pve", "overlay"}
 )
 public class AoeWarningPlugin extends Plugin
 {
@@ -105,6 +103,9 @@ public class AoeWarningPlugin extends Plugin
 
 	@Getter(AccessLevel.PACKAGE)
 	private List<GameObject> wintertodtSnowFall = new ArrayList<>();
+
+	private static final int VERZIK_REGION = 12611;
+	private static final int GROTESQUE_GUARDIANS_REGION = 6727;
 
 	@Provides
 	AoeWarningConfig getConfig(ConfigManager configManager)
@@ -333,7 +334,15 @@ public class AoeWarningPlugin extends Plugin
 				return notify ? config.isGalvekNotifyEnabled() : config.isGalvekEnabled();
 			case DAWN_FREEZE:
 			case DUSK_CEILING:
-				return notify ? config.isGargBossNotifyEnabled() : config.isGargBossEnabled();
+				if (regionCheck(GROTESQUE_GUARDIANS_REGION))
+				{
+					return notify ? config.isGargBossNotifyEnabled() : config.isGargBossEnabled();
+				}
+			case VERZIK_P1_ROCKS:
+				if (regionCheck(VERZIK_REGION))
+				{
+					return notify ? config.isVerzikNotifyEnabled() : config.isVerzikEnabled();
+				}
 			case OLM_FALLING_CRYSTAL:
 			case OLM_BURNING:
 			case OLM_FALLING_CRYSTAL_TRAIL:
@@ -353,28 +362,11 @@ public class AoeWarningPlugin extends Plugin
 				return notify ? config.isCerbFireNotifyEnabled() : config.isCerbFireEnabled();
 			case DEMONIC_GORILLA_BOULDER:
 				return notify ? config.isDemonicGorillaNotifyEnabled() : config.isDemonicGorillaEnabled();
+			case VERZIK_PURPLE_SPAWN:
+				return notify ? config.isVerzikNotifyEnabled() : config.isVerzikEnabled();
 		}
 
 		return false;
-	}
-
-	@Subscribe
-	public void onConfigChanged(ConfigChanged event)
-	{
-		if (!event.getGroup().equals("aoe"))
-		{
-			return;
-		}
-
-		if (event.getKey().equals("mirrorMode"))
-		{
-			bombOverlay.determineLayer();
-			coreOverlay.determineLayer();
-			overlayManager.remove(bombOverlay);
-			overlayManager.remove(coreOverlay);
-			overlayManager.add(bombOverlay);
-			overlayManager.add(coreOverlay);
-		}
 	}
 
 	private void reset()
@@ -385,5 +377,10 @@ public class AoeWarningPlugin extends Plugin
 		wintertodtSnowFall.clear();
 		bombs.clear();
 		projectiles.clear();
+	}
+
+	private boolean regionCheck(int region)
+	{
+		return ArrayUtils.contains(client.getMapRegions(), region);
 	}
 }

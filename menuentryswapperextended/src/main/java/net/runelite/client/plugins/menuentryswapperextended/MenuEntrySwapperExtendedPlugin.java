@@ -25,78 +25,73 @@
 package net.runelite.client.plugins.menuentryswapperextended;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.google.inject.Provides;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 import javax.inject.Inject;
-import lombok.AccessLevel;
-import lombok.Setter;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
-import static net.runelite.api.ItemID.FIRE_TIARA;
-import static net.runelite.api.ItemID.MAX_CAPE;
-import static net.runelite.api.ItemID.RUNECRAFT_CAPE;
-import static net.runelite.api.ItemID.RUNECRAFT_CAPET;
+import net.runelite.api.MenuAction;
 import net.runelite.api.MenuEntry;
 import net.runelite.api.Player;
 import net.runelite.api.Varbits;
-import static net.runelite.api.Varbits.BUILDING_MODE;
-import static net.runelite.api.Varbits.IN_WILDERNESS;
 import net.runelite.api.WorldType;
 import net.runelite.api.events.ClientTick;
-import net.runelite.api.events.FocusChanged;
-import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.MenuEntryAdded;
 import net.runelite.api.events.MenuOpened;
-import net.runelite.api.events.PlayerAppearanceChanged;
 import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.kit.KitType;
 import net.runelite.api.util.Text;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.input.KeyManager;
-import net.runelite.client.menus.AbstractComparableEntry;
-import net.runelite.client.menus.EquipmentComparableEntry;
-import static net.runelite.client.menus.ComparableEntries.newBaseComparableEntry;
-import net.runelite.client.menus.MenuManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDependency;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.plugins.PluginManager;
-import net.runelite.client.plugins.PluginType;
-import net.runelite.client.plugins.menuentryswapperextended.util.MESAbstractComparables;
+import net.runelite.client.plugins.menuentryswapper.MenuEntrySwapperPlugin;
+import net.runelite.client.plugins.menuentryswapperextended.util.BurningAmuletMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.CombatBraceletMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.ConstructionCapeMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.CraftingCapeMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.DigsitePendantMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.DuelingRingMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.GamesNecklaceMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.GloryMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.MagicCapeMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.MaxCapeEquippedMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.NecklaceOfPassageMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.RingOfWealthMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.SkillsNecklaceMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.XericsTalismanMode;
+import net.runelite.client.plugins.menuentryswapperextended.util.comparableentry.AbstractComparableEntry;
 import net.runelite.client.plugins.pvptools.PvpToolsConfig;
 import net.runelite.client.plugins.pvptools.PvpToolsPlugin;
-import net.runelite.client.util.HotkeyListener;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.pf4j.Extension;
+import static net.runelite.api.Varbits.IN_WILDERNESS;
+import static net.runelite.client.plugins.menuentryswapperextended.util.comparableentry.ComparableEntries.newBaseComparableEntry;
 
 @Extension
 @PluginDescriptor(
 	name = "Menu Entry Swapper Extended",
 	enabledByDefault = false,
 	description = "Change the default option that is displayed when hovering over objects",
-	tags = {"pickpocket", "equipped items", "inventory", "items", "equip"},
-	type = PluginType.UTILITY
+	tags = {"pickpocket", "equipped items", "inventory", "items", "equip", "construction"}
 )
 @PluginDependency(PvpToolsPlugin.class)
+@PluginDependency(MenuEntrySwapperPlugin.class)
 public class MenuEntrySwapperExtendedPlugin extends Plugin
 {
-	private static final Object HOTKEY = new Object();
-	private static final Object HOTKEY_CHECK = new Object();
-
-	private final Map<AbstractComparableEntry, AbstractComparableEntry> dePrioSwaps = new HashMap<>();
-
-	private static final Splitter NEWLINE_SPLITTER = Splitter
-		.on("\n")
-		.omitEmptyStrings()
-		.trimResults();
-
 	@Inject
 	private Client client;
 
@@ -110,13 +105,7 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 	private PluginManager pluginManager;
 
 	@Inject
-	private MenuManager menuManager;
-
-	@Inject
-	private KeyManager keyManager;
-
-	@Inject
-	private EventBus eventBus;
+	private ConfigManager configManager;
 
 	@Inject
 	private PvpToolsPlugin pvpTools;
@@ -124,32 +113,22 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 	@Inject
 	private PvpToolsConfig pvpToolsConfig;
 
-	private boolean buildingMode;
+	@Inject
+	private MenuEntrySwapperPlugin mesPlugin;
+
 	private boolean inTobRaid = false;
 	private boolean inCoxRaid = false;
-	@Setter(AccessLevel.PRIVATE)
-	private boolean hotkeyActive;
 
-	private static final int FIRE_ALTAR = 10315;
-	private static final int CWARS = 9776;
-	private static final int CRAFT_GUILD = 11571;
+	private MenuEntry[] menuEntries;
+	List<String> targetList;
+	List<String> optionsList;
 
-	private final HotkeyListener hotkey = new HotkeyListener(() -> config.hotkeyMod())
-	{
-		@Override
-		public void hotkeyPressed()
-		{
-			startHotkey();
-			setHotkeyActive(true);
-		}
-
-		@Override
-		public void hotkeyReleased()
-		{
-			stopHotkey();
-			setHotkeyActive(false);
-		}
-	};
+	private static final Splitter NEWLINE_SPLITTER = Splitter
+			.on("\n")
+			.omitEmptyStrings()
+			.trimResults();
+	private final Map<AbstractComparableEntry, Integer> customSwaps = new HashMap<>();
+	private final List<Pair<AbstractComparableEntry, AbstractComparableEntry>> prioSwaps = new ArrayList<>();
 
 	@Provides
 	MenuEntrySwapperExtendedConfig provideConfig(ConfigManager configManager)
@@ -160,11 +139,24 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 	@Override
 	public void startUp()
 	{
+		//Clean up old custom swaps configuration in MenuEntrySwapper-plugin
+		if (configManager != null && Strings.isNullOrEmpty(config.customSwaps()))
+		{
+			String oldCustomSwaps = configManager.getConfiguration("menuentryswapper", "customSwaps");
+			if (!Strings.isNullOrEmpty(oldCustomSwaps))
+			{
+				configManager.setConfiguration("menuentryswapperextended", "customSwaps", oldCustomSwaps);
+				configManager.unsetConfiguration("menuentryswapper", "customSwaps");
+			}
+		}
+
+		loadCustomSwaps(config.customSwaps(), customSwaps);
+		loadPrioSwaps(config.prioEntry(), prioSwaps);
+
 		if (client.getGameState() != GameState.LOGGED_IN)
 		{
 			return;
 		}
-		keyManager.registerKeyListener(hotkey);
 		setCastOptions(true);
 		loadSwaps();
 	}
@@ -172,8 +164,9 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 	@Override
 	public void shutDown()
 	{
-		removeSwaps();
-		keyManager.unregisterKeyListener(hotkey);
+		loadCustomSwaps("", customSwaps); // Removes all custom swaps
+		loadPrioSwaps("", prioSwaps); // Removes all priority swaps
+
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
 			resetCastOptions();
@@ -181,12 +174,20 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 	}
 
 	@Subscribe
-	private void onFocusChanged(FocusChanged event)
+	private void onMenuEntryAdded(MenuEntryAdded menuEntryAdded)
 	{
-		if (!event.isFocused())
+		if (!config.getEasyConstruction())
 		{
-			stopHotkey();
+			return;
 		}
+
+		if ((client.getVarbitValue(2176) != 1) && menuEntryAdded.getOpcode() != MenuAction.GAME_OBJECT_FIFTH_OPTION.getId())
+		{
+			return;
+		}
+
+		menuEntries = client.getMenuEntries();
+		swapConstructionMenu(menuEntries);
 	}
 
 	@Subscribe
@@ -197,11 +198,16 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 			return;
 		}
 
-		removeSwaps();
 		loadSwaps();
 
 		switch (event.getKey())
 		{
+			case "customSwaps":
+				loadCustomSwaps(config.customSwaps(), customSwaps);
+				return;
+			case "prioEntry":
+				loadPrioSwaps(config.prioEntry(), prioSwaps);
+				return;
 			case "hideCastToB":
 			case "hideCastIgnoredToB":
 				if (config.hideCastToB())
@@ -227,32 +233,9 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 	}
 
 	@Subscribe
-	private void onGameStateChanged(GameStateChanged event)
-	{
-		final GameState gameState = event.getGameState();
-
-		switch (gameState)
-		{
-			case LOADING:
-			case CONNECTION_LOST:
-			case HOPPING:
-			case LOGIN_SCREEN:
-				keyManager.unregisterKeyListener(hotkey);
-				break;
-			case LOGGED_IN:
-				removeSwaps();
-				loadSwaps();
-				keyManager.registerKeyListener(hotkey);
-				break;
-		}
-	}
-
-	@Subscribe
 	private void onVarbitChanged(VarbitChanged event)
 	{
-		buildingMode = client.getVar(BUILDING_MODE) == 1;
 		setCastOptions(false);
-		leftClickTrade();
 	}
 
 	@Subscribe
@@ -265,302 +248,247 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 			return;
 		}
 
-		List<MenuEntry> menu_entries = new ArrayList<>();
+		event.setMenuEntries(updateMenuEntries(event.getMenuEntries()));
+		event.setModified();
+	}
 
-		for (MenuEntry entry : event.getMenuEntries())
+	private final Predicate<MenuEntry> filterMenuEntries = entry ->
+	{
+		String option = Text.removeTags(entry.getOption()).toLowerCase();
+
+		if (option.contains("trade with") && config.hideTradeWith())
 		{
-			String option = Text.removeTags(entry.getOption()).toLowerCase();
+			return false;
+		}
 
-			if (option.contains("trade with") && config.hideTradeWith())
-			{
-				continue;
-			}
-
-			if (option.contains("empty") && config.hideEmpty())
-			{
-				if (entry.getTarget().contains("potion") || entry.getTarget().contains("Antidote")
+		if (option.contains("empty") && config.hideEmpty())
+		{
+			if (entry.getTarget().contains("potion") || entry.getTarget().contains("Antidote")
 					|| entry.getTarget().contains("venom") || entry.getTarget().contains("antifire")
 					|| entry.getTarget().contains("Antipoison") || entry.getTarget().contains("Superantipoison")
 					|| entry.getTarget().contains("Saradomin brew") || entry.getTarget().contains("Super restore")
 					|| entry.getTarget().contains("Zamorak brew") || entry.getTarget().contains("Guthix rest"))
-				{
-					continue;
-				}
+			{
+				return false;
 			}
-
-			menu_entries.add(entry);
 		}
-		event.setMenuEntries(menu_entries.toArray(new MenuEntry[0]));
-		event.setModified();
-	}
 
+		return true;
+	};
 
 	@Subscribe
-	private void onPlayerAppearanceChanged(PlayerAppearanceChanged event)
+	public void onClientTick(ClientTick clientTick)
 	{
-		if (!event.getPlayer().equals(client.getLocalPlayer()))
+		// The menu is not rebuilt when it is open, so don't swap or else it will
+		// repeatedly swap entries
+		if (client.getGameState() != GameState.LOGGED_IN || client.isMenuOpen())
 		{
 			return;
 		}
-		rcSwaps();
 
+		client.setMenuEntries(updateMenuEntries(client.getMenuEntries()));
+	}
+
+	private MenuEntry[] updateMenuEntries(MenuEntry[] menuEntries)
+	{
+		return Arrays.stream(menuEntries)
+				.filter(filterMenuEntries)
+				.sorted((o1, o2) ->
+				{
+					//Priority swaps
+					var prioSwap = prioSwaps
+							.stream()
+							.filter(o -> o.getKey().matches(o1) && o.getValue().matches(o2))
+							.findFirst();
+					if (prioSwap.isPresent())
+						return 1;
+
+					prioSwap = prioSwaps
+							.stream()
+							.filter(o -> o.getKey().matches(o2) && o.getValue().matches(o1))
+							.findFirst();
+					if (prioSwap.isPresent())
+						return -1;
+
+					return 0;
+				})
+				.sorted(
+					//Hotkey swaps
+					Comparator.comparingInt(o -> customSwaps.entrySet()
+						.stream()
+						.filter(x -> x.getKey().matches(o))
+						.map(x -> x.getValue())
+						.sorted(Comparator.reverseOrder())
+						.findFirst().orElse(Integer.MIN_VALUE)))
+				.toArray(MenuEntry[]::new);
 	}
 
 	private void loadSwaps()
 	{
 		addSwaps();
-		leftClickTrade();
-		rcSwaps();
 		loadConstructionItems();
-	}
-
-	private void addSwaps()
-	{
-		final List<String> tmp = NEWLINE_SPLITTER.splitToList(config.prioEntry());
-
-		for (String str : tmp)
-		{
-			String[] strings = str.split(",");
-
-			if (strings.length <= 1)
-			{
-				continue;
-			}
-
-			final AbstractComparableEntry a = newBaseComparableEntry("", strings[1], -1, -1, false, true);
-			final AbstractComparableEntry b = newBaseComparableEntry(strings[0], "", -1, -1, false, false);
-			dePrioSwaps.put(a, b);
-			menuManager.addSwap(a, b);
-		}
-
-		if (config.swapPickpocket())
-		{
-			menuManager.addPriorityEntry("Pickpocket").setPriority(1);
-		}
-
-		if (config.getBurningAmulet())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getBurningAmuletMode().toString(), "burning amulet"));
-		}
-
-		if (config.getCombatBracelet())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getCombatBraceletMode().toString(), "combat bracelet"));
-		}
-
-		if (config.getGamesNecklace())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getGamesNecklaceMode().toString(), "games necklace"));
-		}
-
-		if (config.getDuelingRing())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getDuelingRingMode().toString(), "ring of dueling"));
-		}
-
-		if (config.getGlory())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getGloryMode().toString(), "glory"));
-		}
-
-		if (config.getSkillsNecklace())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getSkillsNecklaceMode().toString(), "skills necklace"));
-		}
-
-		if (config.getNecklaceofPassage())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getNecklaceofPassageMode().toString(), "necklace of passage"));
-		}
-
-		if (config.getDigsitePendant())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getDigsitePendantMode().toString(), "digsite pendant"));
-		}
-
-		if (config.getSlayerRing())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getSlayerRingMode().toString(), "slayer ring"));
-		}
-
-		if (config.getXericsTalisman())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getXericsTalismanMode().toString(), "talisman"));
-		}
-
-		if (config.getRingofWealth())
-		{
-			menuManager.addPriorityEntry(new EquipmentComparableEntry(config.getRingofWealthMode().toString(), "ring of wealth"));
-		}
-
-	}
-
-	private void leftClickTrade()
-	{
-		if (client.getVar(IN_WILDERNESS) == 1 || WorldType.isAllPvpWorld(client.getWorldType()))
-		{
-			return;
-		}
-
-		if (config.leftClickTrade())
-		{
-			menuManager.addPriorityEntry(MESAbstractComparables.TRADE);
-		}
-
-		if (config.leftClickFollow())
-		{
-			menuManager.addPriorityEntry(MESAbstractComparables.FOLLOW);
-		}
-	}
-
-	private void rcSwaps()
-	{
-		if (client.getLocalPlayer() == null || !config.swapDuelRingLavas()
-			|| client.getLocalPlayer().getWorldLocation().getRegionID() != CWARS
-			|| client.getLocalPlayer().getWorldLocation().getRegionID() != CRAFT_GUILD
-			|| client.getLocalPlayer().getWorldLocation().getRegionID() != FIRE_ALTAR)
-		{
-			menuManager.removePriorityEntry(new EquipmentComparableEntry("castle wars", "ring of dueling"));
-			menuManager.removePriorityEntry(new EquipmentComparableEntry("duel arena", "ring of dueling"));
-			menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape"));
-			menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape(t)"));
-			menuManager.removePriorityEntry(new EquipmentComparableEntry("Crafting Guild", "Max cape"));
-		}
-
-		if (checkFireAltarAccess())
-		{
-			if (client.getLocalPlayer().getWorldLocation().getRegionID() == FIRE_ALTAR)
-			{
-				menuManager.addPriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape")).setPriority(100);
-				menuManager.addPriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape(t)")).setPriority(100);
-				menuManager.addPriorityEntry(new EquipmentComparableEntry("Crafting Guild", "Max cape")).setPriority(100);
-				menuManager.addPriorityEntry(new EquipmentComparableEntry("castle wars", "ring of dueling")).setPriority(100);
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("duel arena", "ring of dueling"));
-			}
-			else if (client.getLocalPlayer().getWorldLocation().getRegionID() == CWARS
-				|| client.getLocalPlayer().getWorldLocation().getRegionID() == CRAFT_GUILD)
-			{
-				menuManager.addPriorityEntry(new EquipmentComparableEntry("duel arena", "ring of dueling")).setPriority(100);
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("castle wars", "ring of dueling"));
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape"));
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape(t)"));
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("Crafting Guild", "Max cape"));
-			}
-			else
-			{
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("castle wars", "ring of dueling"));
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("duel arena", "ring of dueling"));
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape"));
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape(t)"));
-				menuManager.removePriorityEntry(new EquipmentComparableEntry("Crafting Guild", "Max cape"));
-			}
-		}
-	}
-
-	private void removeSwaps()
-	{
-		final Iterator<Map.Entry<AbstractComparableEntry, AbstractComparableEntry>> dePrioIter = dePrioSwaps.entrySet().iterator();
-		dePrioIter.forEachRemaining((e) ->
-		{
-			menuManager.removeSwap(e.getKey(), e.getValue());
-			dePrioIter.remove();
-		});
-		menuManager.removePriorityEntry("Pickpocket");
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getBurningAmuletMode().toString(), "burning amulet"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getCombatBraceletMode().toString(), "combat bracelet"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getDigsitePendantMode().toString(), "digsite pendant"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getDuelingRingMode().toString(), "ring of dueling"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getGamesNecklaceMode().toString(), "games necklace"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getGloryMode().toString(), "glory"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getNecklaceofPassageMode().toString(), "necklace of passage"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getRingofWealthMode().toString(), "ring of wealth"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getSkillsNecklaceMode().toString(), "skills necklace"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getSlayerRingMode().toString(), "slayer ring"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry(config.getXericsTalismanMode().toString(), "talisman"));
-		menuManager.removePriorityEntry(config.getConstructionMode().getBuild());
-		menuManager.removePriorityEntry(config.getConstructionMode().getRemove());
-		menuManager.removePriorityEntry(new EquipmentComparableEntry("castle wars", "ring of dueling"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry("duel arena", "ring of dueling"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry("Teleport", "Crafting cape(t)"));
-		menuManager.removePriorityEntry(new EquipmentComparableEntry("Crafting Guild", "Max cape"));
-		menuManager.removePriorityEntry(MESAbstractComparables.TRADE);
-		menuManager.removePriorityEntry(MESAbstractComparables.FOLLOW);
 	}
 
 	private void loadConstructionItems()
 	{
-		if (client.getGameState() != GameState.LOGGED_IN)
+		targetList = config.getConstructionMode().getTargetList();
+		optionsList = config.getConstructionMode().getOptionsList();
+	}
+
+
+	private void loadPrioSwaps(String config, List<Pair<AbstractComparableEntry, AbstractComparableEntry>> map)
+	{
+		map.clear();
+		if (Strings.isNullOrEmpty(config))
 		{
 			return;
 		}
 
-		if (!buildingMode)
-		{
-			menuManager.removePriorityEntry(config.getConstructionMode().getBuild());
-			menuManager.removePriorityEntry(config.getConstructionMode().getRemove());
-			return;
-		}
-
-		if (config.getEasyConstruction())
-		{
-			menuManager.addPriorityEntry(config.getConstructionMode().getBuild()).setPriority(100);
-			menuManager.addPriorityEntry(config.getConstructionMode().getRemove()).setPriority(100);
-		}
+		StreamSupport
+			.stream(NEWLINE_SPLITTER.split(config).spliterator(), false)
+			.map(s -> Arrays.stream(s.split(",")).filter(o -> !Strings.isNullOrEmpty(o)).toArray(String[]::new))
+			.filter(o -> o.length == 2)
+			.forEach(o -> map.add(new ImmutablePair<>(
+					newBaseComparableEntry(o[0], "", -1, -1, true, false),
+					newBaseComparableEntry("", o[1], -1, -1, false, false))));
 	}
 
-	private void startHotkey()
+	private void loadCustomSwaps(String config, Map<AbstractComparableEntry, Integer> map)
 	{
-		eventBus.subscribe(ClientTick.class, HOTKEY, this::addHotkey);
-		eventBus.subscribe(ClientTick.class, HOTKEY_CHECK, this::hotkeyCheck);
-	}
+		final Map<AbstractComparableEntry, Integer> tmp = new HashMap<>();
 
-	private void addHotkey(ClientTick event)
-	{
-		if (config.hotKeyLoot())
+		if (!Strings.isNullOrEmpty(config))
 		{
-			menuManager.addPriorityEntry(MESAbstractComparables.TAKE);
-		}
-		if (config.hotKeyWalk())
-		{
-			menuManager.addPriorityEntry(MESAbstractComparables.WALK);
-		}
+			final StringBuilder sb = new StringBuilder();
 
-		eventBus.unregister(HOTKEY);
-	}
-
-	private void stopHotkey()
-	{
-		eventBus.subscribe(ClientTick.class, HOTKEY, this::removeHotkey);
-	}
-
-	private void removeHotkey(ClientTick event)
-	{
-		menuManager.removePriorityEntry(MESAbstractComparables.TAKE);
-		menuManager.removePriorityEntry(MESAbstractComparables.WALK);
-
-		eventBus.unregister(HOTKEY);
-	}
-
-	private void hotkeyCheck(ClientTick event)
-	{
-		if (hotkeyActive)
-		{
-			int i = 0;
-			for (boolean bol : client.getPressedKeys())
+			for (String str : NEWLINE_SPLITTER.split(config))
 			{
-				if (bol)
+				if (!str.startsWith("//"))
 				{
-					i++;
+					sb.append(str).append("\n");
 				}
 			}
-			if (i == 0)
+
+			final Map<String, String> split = NEWLINE_SPLITTER.withKeyValueSeparator(':').split(sb);
+
+			for (Map.Entry<String, String> entry : split.entrySet())
 			{
-				stopHotkey();
-				setHotkeyActive(false);
-				eventBus.unregister(HOTKEY_CHECK);
+				final String prio = entry.getKey();
+				int priority;
+				try
+				{
+					priority = Integer.parseInt(entry.getValue().trim());
+				}
+				catch (NumberFormatException e)
+				{
+					priority = 0;
+				}
+				final String[] splitFrom = Text.standardize(prio).split(",");
+				final String optionFrom = splitFrom[0].trim();
+				final String targetFrom;
+				if (splitFrom.length == 1)
+				{
+					targetFrom = "";
+				}
+				else
+				{
+					targetFrom = splitFrom[1].trim();
+				}
+
+				final AbstractComparableEntry prioEntry = newBaseComparableEntry(optionFrom, targetFrom, !Strings.isNullOrEmpty(targetFrom));
+
+				tmp.put(prioEntry, priority);
 			}
 		}
+
+		map.clear();
+		map.putAll(tmp);
+	}
+
+	private Predicate<String> targetSwap(String string)
+	{
+		return (in) -> in.toLowerCase().contains(string);
+	}
+
+	private void addSwaps()
+	{
+		for (String option : new String[]{"attack", "talk-to"})
+		{
+			mesPlugin.swapContains(option, (s) -> true, "pickpocket", config::swapPickpocket);
+		}
+
+		mesPlugin.swap("remove", targetSwap("burning amulet"), "chaos temple", () -> config.getBurningAmuletMode() == BurningAmuletMode.CHAOS_TEMPLE);
+		mesPlugin.swap("remove", targetSwap("burning amulet"), "bandit camp", () -> config.getBurningAmuletMode() == BurningAmuletMode.BANDIT_CAMP);
+		mesPlugin.swap("remove", targetSwap("burning amulet"), "lava maze", () -> config.getBurningAmuletMode() == BurningAmuletMode.LAVA_MAZE);
+
+		mesPlugin.swap("remove", targetSwap("combat bracelet"), "warriors' guild", () -> config.getCombatBraceletMode() == CombatBraceletMode.WARRIORS_GUILD);
+		mesPlugin.swap("remove", targetSwap("combat bracelet"), "champions' guild", () -> config.getCombatBraceletMode() == CombatBraceletMode.CHAMPIONS_GUILD);
+		mesPlugin.swap("remove", targetSwap("combat bracelet"), "edgeville monastery", () -> config.getCombatBraceletMode() == CombatBraceletMode.EDGEVILLE_MONASTERY);
+		mesPlugin.swap("remove", targetSwap("combat bracelet"), "ranging guild", () -> config.getCombatBraceletMode() == CombatBraceletMode.RANGING_GUILD);
+
+		mesPlugin.swap("remove", targetSwap("games necklace"), "burthorpe", () -> config.getGamesNecklaceMode() == GamesNecklaceMode.BURTHORPE);
+		mesPlugin.swap("remove", targetSwap("games necklace"), "barbarian outpost", () -> config.getGamesNecklaceMode() == GamesNecklaceMode.BARBARIAN_OUTPOST);
+		mesPlugin.swap("remove", targetSwap("games necklace"), "corporeal beast", () -> config.getGamesNecklaceMode() == GamesNecklaceMode.CORPOREAL_BEAST);
+		mesPlugin.swap("remove", targetSwap("games necklace"), "tears of guthix", () -> config.getGamesNecklaceMode() == GamesNecklaceMode.TEARS_OF_GUTHIX);
+		mesPlugin.swap("remove", targetSwap("games necklace"), "wintertodt camp", () -> config.getGamesNecklaceMode() == GamesNecklaceMode.WINTER);
+
+		mesPlugin.swap("remove", targetSwap("ring of dueling"), "duel arena", () -> config.getDuelingRingMode() == DuelingRingMode.DUEL_ARENA);
+		mesPlugin.swap("remove", targetSwap("ring of dueling"), "castle wars", () -> config.getDuelingRingMode() == DuelingRingMode.CASTLE_WARS);
+		mesPlugin.swap("remove", targetSwap("ring of dueling"), "ferox enclave", () -> config.getDuelingRingMode() == DuelingRingMode.FEROX_ENCLAVE);
+
+		mesPlugin.swap("remove", targetSwap("amulet of glory"), "edgeville", () -> config.getGloryMode() == GloryMode.EDGEVILLE);
+		mesPlugin.swap("remove", targetSwap("amulet of glory"), "karamja", () -> config.getGloryMode() == GloryMode.KARAMJA);
+		mesPlugin.swap("remove", targetSwap("amulet of glory"), "al kharid", () -> config.getGloryMode() == GloryMode.AL_KHARID);
+		mesPlugin.swap("remove", targetSwap("amulet of glory"), "draynor village", () -> config.getGloryMode() == GloryMode.DRAYNOR_VILLAGE);
+		mesPlugin.swap("remove", targetSwap("amulet of eternal glory"), "edgeville", () -> config.getGloryMode() == GloryMode.EDGEVILLE);
+		mesPlugin.swap("remove", targetSwap("amulet of eternal glory"), "karamja", () -> config.getGloryMode() == GloryMode.KARAMJA);
+		mesPlugin.swap("remove", targetSwap("amulet of eternal glory"), "al kharid", () -> config.getGloryMode() == GloryMode.AL_KHARID);
+		mesPlugin.swap("remove", targetSwap("amulet of eternal glory"), "draynor village", () -> config.getGloryMode() == GloryMode.DRAYNOR_VILLAGE);
+
+		mesPlugin.swap("remove", targetSwap("skills necklace"), "fishing guild", () -> config.getSkillsNecklaceMode() == SkillsNecklaceMode.FISHING_GUILD);
+		mesPlugin.swap("remove", targetSwap("skills necklace"), "mining guild", () -> config.getSkillsNecklaceMode() == SkillsNecklaceMode.MINING_GUILD);
+		mesPlugin.swap("remove", targetSwap("skills necklace"), "farming guild", () -> config.getSkillsNecklaceMode() == SkillsNecklaceMode.FARMING_GUILD);
+		mesPlugin.swap("remove", targetSwap("skills necklace"), "cooking guild", () -> config.getSkillsNecklaceMode() == SkillsNecklaceMode.COOKING_GUILD);
+		mesPlugin.swap("remove", targetSwap("skills necklace"), "woodcutting guild", () -> config.getSkillsNecklaceMode() == SkillsNecklaceMode.WOODCUTTING_GUILD);
+		mesPlugin.swap("remove", targetSwap("skills necklace"), "crafting guild", () -> config.getSkillsNecklaceMode() == SkillsNecklaceMode.CRAFTING_GUILD);
+
+		mesPlugin.swap("remove", targetSwap("necklace of passage"), "wizards' tower", () -> config.getNecklaceofPassageMode() == NecklaceOfPassageMode.WIZARDS_TOWER);
+		mesPlugin.swap("remove", targetSwap("necklace of passage"), "the outpost", () -> config.getNecklaceofPassageMode() == NecklaceOfPassageMode.THE_OUTPOST);
+		mesPlugin.swap("remove", targetSwap("necklace of passage"), "eagles' eyrie", () -> config.getNecklaceofPassageMode() == NecklaceOfPassageMode.EAGLES_EYRIE);
+
+		mesPlugin.swap("remove", targetSwap("digsite pendant"), "digsite", () -> config.getDigsitePendantMode() == DigsitePendantMode.DIGSITE);
+		mesPlugin.swap("remove", targetSwap("digsite pendant"), "fossil island", () -> config.getDigsitePendantMode() == DigsitePendantMode.FOSSIL_ISLAND);
+		mesPlugin.swap("remove", targetSwap("digsite pendant"), "lithkren dungeon", () -> config.getDigsitePendantMode() == DigsitePendantMode.LITHKREN);
+
+		mesPlugin.swap("remove", targetSwap("ring of wealth"), "miscellania", () -> config.getRingofWealthMode() == RingOfWealthMode.MISCELLANIA);
+		mesPlugin.swap("remove", targetSwap("ring of wealth"), "grand exchange", () -> config.getRingofWealthMode() == RingOfWealthMode.GRAND_EXCHANGE);
+		mesPlugin.swap("remove", targetSwap("ring of wealth"), "falador", () -> config.getRingofWealthMode() == RingOfWealthMode.FALADOR);
+		mesPlugin.swap("remove", targetSwap("ring of wealth"), "dondakan", () -> config.getRingofWealthMode() == RingOfWealthMode.DONDAKAN);
+
+		mesPlugin.swap("remove", targetSwap("talisman"), "xeric's glade", () -> config.getXericsTalismanMode() == XericsTalismanMode.XERICS_GLADE);
+		mesPlugin.swap("remove", targetSwap("talisman"), "xeric's look-out", () -> config.getXericsTalismanMode() == XericsTalismanMode.XERICS_LOOKOUT);
+		mesPlugin.swap("remove", targetSwap("talisman"), "xeric's inferno", () -> config.getXericsTalismanMode() == XericsTalismanMode.XERICS_INFERNO);
+		mesPlugin.swap("remove", targetSwap("talisman"), "xeric's heart", () -> config.getXericsTalismanMode() == XericsTalismanMode.XERICS_HEART);
+		// Disable this for now as the method does not support the operation to be executed with desired outcome
+		//mesPlugin.swap("remove", targetSwap("talisman"), "xeric's honour", () -> config.getXericsTalismanMode() == XericsTalismanMode.XERICS_HONOUR);
+
+		mesPlugin.swap("wear", targetSwap("crafting cape"), "teleport",
+				() -> config.getCraftingCapeMode() == CraftingCapeMode.INVENTORY || config.getCraftingCapeMode() == CraftingCapeMode.ALWAYS);
+		mesPlugin.swap("remove", targetSwap("crafting cape"), "teleport",
+				() -> config.getCraftingCapeMode() == CraftingCapeMode.EQUIPPED || config.getCraftingCapeMode() == CraftingCapeMode.ALWAYS);
+
+		mesPlugin.swap("wear", targetSwap("construct."), "tele to poh",
+				() -> config.getConstructionCapeMode() == ConstructionCapeMode.INVENTORY || config.getConstructionCapeMode() == ConstructionCapeMode.ALWAYS);
+		mesPlugin.swap("remove", targetSwap("construct."), "tele to poh",
+				() -> config.getConstructionCapeMode() == ConstructionCapeMode.EQUIPPED || config.getConstructionCapeMode() == ConstructionCapeMode.ALWAYS);
+
+		mesPlugin.swap("wear", targetSwap("magic cape"), "spellbook", () -> config.getMagicCapeMode() == MagicCapeMode.INVENTORY || config.getMagicCapeMode() == MagicCapeMode.ALWAYS);
+		mesPlugin.swap("remove", targetSwap("magic cape"), "spellbook", () -> config.getMagicCapeMode() == MagicCapeMode.EQUIPPED || config.getMagicCapeMode() == MagicCapeMode.ALWAYS);
+
+		mesPlugin.swap("remove", targetSwap("max cape"), "tele to poh", () -> config.getMaxCapeEquippedMode() == MaxCapeEquippedMode.TELE_TO_POH);
+		mesPlugin.swap("remove", targetSwap("max cape"), "crafting guild", () -> config.getMaxCapeEquippedMode() == MaxCapeEquippedMode.CRAFTING_GUILD);
+		mesPlugin.swap("remove", targetSwap("max cape"), "warriors' guild", () -> config.getMaxCapeEquippedMode() == MaxCapeEquippedMode.WARRIORS_GUILD);
+		mesPlugin.swap("remove", targetSwap("max cape"), "fishing teleports", () -> config.getMaxCapeEquippedMode() == MaxCapeEquippedMode.FISHING_TELEPORTS);
 	}
 
 	private void setCastOptions(boolean force)
@@ -604,7 +532,7 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 	{
 		clientThread.invoke(() ->
 		{
-			if (client.getVar(Varbits.IN_WILDERNESS) == 1 || WorldType.isAllPvpWorld(client.getWorldType()) && pluginManager.isPluginEnabled(pvpTools) && pvpToolsConfig.hideCast())
+			if (client.getVar(IN_WILDERNESS) == 1 || WorldType.isAllPvpWorld(client.getWorldType()) && pluginManager.isPluginEnabled(pvpTools) && pvpToolsConfig.hideCast())
 			{
 				pvpTools.setCastOptions();
 			}
@@ -616,15 +544,40 @@ public class MenuEntrySwapperExtendedPlugin extends Plugin
 		});
 	}
 
-	private boolean checkFireAltarAccess()
+	private void swapConstructionMenu(MenuEntry[] menuEntries)
 	{
-		if (client.getLocalPlayer() == null || client.getLocalPlayer().getPlayerAppearance() == null)
+		for (MenuEntry menuEntry : menuEntries)
 		{
-			return false;
+			if (validConstructionSwap(menuEntry))
+			{
+				createConstructionMenu(menuEntry);
+			}
 		}
-		return client.getLocalPlayer().getPlayerAppearance().getEquipmentId(KitType.HEAD) == FIRE_TIARA
-			|| client.getLocalPlayer().getPlayerAppearance().getEquipmentId(KitType.CAPE) == RUNECRAFT_CAPE
-			|| client.getLocalPlayer().getPlayerAppearance().getEquipmentId(KitType.CAPE) == RUNECRAFT_CAPET
-			|| client.getLocalPlayer().getPlayerAppearance().getEquipmentId(KitType.CAPE) == MAX_CAPE;
+	}
+
+	public boolean validConstructionSwap(MenuEntry menuEntry)
+	{
+		return (matchesConstructionOption(menuEntry) && matchesConstructionTarget(menuEntry));
+	}
+
+	public boolean matchesConstructionOption(MenuEntry menuEntry)
+	{
+		return config.getConstructionMode().getOptionsList().stream()
+			.anyMatch(Text.standardize(menuEntry.getOption())::contains);
+	}
+
+	public boolean matchesConstructionTarget(MenuEntry menuEntry)
+	{
+		return config.getConstructionMode().getTargetList().stream()
+			.anyMatch(Text.standardize(menuEntry.getTarget())::contains);
+	}
+
+	private void createConstructionMenu(MenuEntry menuEntry)
+	{
+		MenuEntry[] newEntries = new MenuEntry[1];
+
+		newEntries[0] = menuEntry;
+
+		client.setMenuEntries(newEntries);
 	}
 }

@@ -45,6 +45,8 @@ public class MapLocations
 	@SuppressWarnings("unchecked")
 	private static final List<Shape>[] WILDERNESS_LEVEL_LINES = new List[Constants.MAX_Z];
 	@SuppressWarnings("unchecked")
+	private static final List<Shape>[] WILDERNESS_TELEPORT_LINES = new List[Constants.MAX_Z];
+	@SuppressWarnings("unchecked")
 	private static final List<Shape>[] DEADMAN_SAFE_ZONES = new List[Constants.MAX_Z];
 	@SuppressWarnings("unchecked")
 	private static final List<Shape>[] PVP_WORLD_SAFE_ZONES = new List[Constants.MAX_Z];
@@ -106,6 +108,16 @@ public class MapLocations
 		return getArea(WILDERNESS_LEVEL_LINES[plane], view);
 	}
 
+	public static Area getWildernessTeleportLines(int plane)
+	{
+		return getArea(WILDERNESS_TELEPORT_LINES[plane]);
+	}
+
+	public static Area getWildernessTeleportLines(Rectangle view, int plane)
+	{
+		return getArea(WILDERNESS_TELEPORT_LINES[plane], view);
+	}
+
 	public static Area getDeadmanSafeZones(int plane)
 	{
 		return getArea(DEADMAN_SAFE_ZONES[plane]);
@@ -137,6 +149,7 @@ public class MapLocations
 		initializeWithEmptyLists(NOT_MULTICOMBAT);
 		initializeWithEmptyLists(ROUGH_WILDERNESS);
 		initializeWithEmptyLists(WILDERNESS_LEVEL_LINES);
+		initializeWithEmptyLists(WILDERNESS_TELEPORT_LINES);
 		initializeWithEmptyLists(DEADMAN_SAFE_ZONES);
 		initializeWithEmptyLists(PVP_WORLD_SAFE_ZONES);
 
@@ -145,6 +158,7 @@ public class MapLocations
 		definePvpSafeZones();
 		defineWilderness();
 		defineWildernessLevelLines();
+		defineWildernessTeleportLines();
 	}
 
 	private static void defineMulticombatAreas()
@@ -524,6 +538,37 @@ public class MapLocations
 			3686, 3896,
 			3680, 3896);
 
+		// Ammonite crabs at southeast Fossil Island
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			3800, 3761,
+			3801, 3761,
+			3801, 3762,
+			3803, 3762,
+			3803, 3763,
+			3807, 3763,
+			3807, 3764,
+			3808, 3764,
+			3808, 3765,
+			3810, 3765,
+			3810, 3766,
+			3812, 3766,
+			3812, 3767,
+			3814, 3767,
+			3814, 3768,
+			3820, 3768,
+			3820, 3767,
+			3824, 3767,
+			3824, 3766,
+			3826, 3766,
+			3826, 3747,
+			3799, 3747,
+			3799, 3749,
+			3798, 3750,
+			3798, 3754,
+			3799, 3754,
+			3799, 3757,
+			3800, 3758);
+
 		// Zeah, southwest of Wintertodt, snowy area with ice giants and wolves
 		addPolygonOnPlane(MULTICOMBAT, 0,
 			1540, 3898,
@@ -706,16 +751,32 @@ public class MapLocations
 			1665, 3746,
 			1667, 3746);
 
+		// Arceuus Tower of Magic
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1596, 3816,
+			1596, 3824,
+			1590, 3824,
+			1590, 3830,
+			1584, 3830,
+			1584, 3837,
+			1576, 3837,
+			1576, 3830,
+			1570, 3830,
+			1570, 3824,
+			1564, 3824,
+			1564, 3816,
+			1570, 3816,
+			1570, 3810,
+			1576, 3810,
+			1576, 3803,
+			1584, 3803,
+			1584, 3810,
+			1590, 3810,
+			1590, 3816);
+
 		// This one goes through western piscarilius, northen hosidius
 		// and southwestern arceuus
 		addPolygonOnPlane(MULTICOMBAT, 0,
-			1728, 3808,
-			1792, 3808,
-			1792, 3764,
-			1856, 3764,
-			1856, 3712,
-			1792, 3712,
-			1792, 3648,
 			1664, 3648,
 			1664, 3706,
 			1665, 3706,
@@ -730,19 +791,42 @@ public class MapLocations
 			1683, 3701,
 			1684, 3701,
 			1684, 3700,
+			1685, 3700,
 			1688, 3700,
-			1688, 3701,
 			1688, 3701,
 			1690, 3701,
 			1690, 3703,
-			1700, 3703,
+			1695, 3703,
+			1695, 3704,
+			1700, 3704,
 			1700, 3705,
+			1701, 3705,
+			1702, 3706,
+			1703, 3706,
 			1704, 3707,
 			1706, 3707,
 			1706, 3709,
 			1712, 3709,
 			1712, 3707,
-			1728, 3707);
+			1728, 3707,
+			1728, 3736,
+			1716, 3736,
+			1716, 3750,
+			1728, 3750,
+			1728, 3807,
+			1792, 3807,
+			1792, 3764,
+			1856, 3764,
+			1856, 3712,
+			1792, 3712,
+			1792, 3648);
+
+		// Odd 1x1 single combat tile on Piscarilius northwesternmost house
+		addPolygonOnPlane(NOT_MULTICOMBAT, 0,
+			1759, 3777,
+			1760, 3777,
+			1760, 3776,
+			1759, 3776);
 
 		// Kourend castle
 		addPolygonOnPlane(MULTICOMBAT, 0,
@@ -821,9 +905,8 @@ public class MapLocations
 			1648, 3637,
 			1626, 3637,
 			1626, 3648,
-			1650, 3648,
 			1664, 3648,
-			1664, 3684,
+			1664, 3584,
 			1684, 3584,
 			1684, 3542,
 			1664, 3542,
@@ -892,9 +975,7 @@ public class MapLocations
 			1807, 3486,
 			1813, 3486,
 			1813, 3471,
-			1833, 3471,
-			1833, 3470,
-			1856, 3470,
+			1856, 3471,
 			1856, 3449,
 			1792, 3449,
 			1792, 3424,
@@ -958,6 +1039,8 @@ public class MapLocations
 			1842, 3545,
 			1842, 3546,
 			1844, 3546,
+			1843, 3546,
+			1843, 3547,
 			1844, 3547,
 			1845, 3547,
 			1845, 3548,
@@ -972,6 +1055,26 @@ public class MapLocations
 			1845, 3567,
 			1845, 3568,
 			1844, 3568,
+			1846, 3548,
+			1846, 3549,
+			1848, 3549,
+			1848, 3550,
+			1849, 3550,
+			1849, 3551,
+			1850, 3551,
+			1850, 3559,
+			1849, 3559,
+			1849, 3560,
+			1849, 3561,
+			1848, 3561,
+			1848, 3563,
+			1847, 3563,
+			1847, 3564,
+			1846, 3564,
+			1846, 3565,
+			1845, 3565,
+			1845, 3566,
+			1844, 3566,
 			1844, 3569,
 			1843, 3569,
 			1843, 3571,
@@ -992,13 +1095,6 @@ public class MapLocations
 			1835, 3579,
 			1835, 3581,
 			1834, 3581);
-
-		// Eastern hosidius area also has a 1x1 multi area
-		addPolygonOnPlane(MULTICOMBAT, 0,
-			1849, 3563,
-			1849, 3564,
-			1850, 3564,
-			1850, 3563);
 
 		// West of shayzien house
 		addPolygonOnPlane(MULTICOMBAT, 0,
@@ -1345,17 +1441,6 @@ public class MapLocations
 			1536, 9920,
 			1472, 9920);
 
-		// Wildy revenant caves
-		addPolygonTo(MULTICOMBAT,
-			3136, 10062,
-			3136, 10240,
-			3236, 10240,
-			3236, 10229,
-			3264, 10229,
-			3264, 10048,
-			3208, 10048,
-			3208, 10062);
-
 		// King black dragon (Kbd)
 		addPolygonTo(MULTICOMBAT,
 			2240, 4672,
@@ -1397,11 +1482,11 @@ public class MapLocations
 			3072, 4544,
 			3072, 4480);
 
-		// Zulrah
+		// Zulrah + Poison Waste
 		addPolygonTo(MULTICOMBAT,
-			2256, 3080,
-			2280, 3080,
-			2280, 3064,
+			2256, 3101,
+			2302, 3101,
+			2302, 3064,
 			2256, 3064);
 
 		// Abyssal sire and abyss
@@ -1450,6 +1535,363 @@ public class MapLocations
 			1745, 3505,
 			1741, 3505,
 			1740, 3504);
+
+		// Hosidius Onion field (East of Kourend POH Portal)
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1747, 3521,
+			1758, 3521,
+			1760, 3523,
+			1760, 3524,
+			1758, 3526,
+			1756, 3526,
+			1754, 3528,
+			1748, 3528,
+			1746, 3526,
+			1746, 3522);
+
+		// Hosidius Cabbage field (Xeric's Glade)
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1762, 3557,
+			1762, 3543,
+			1742, 3543,
+			1742, 3557);
+
+		// Hosidius Ruins (North of Hosidius Mine / West of Tithe Farm)
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1771, 3514,
+			1771, 3513,
+			1768, 3513,
+			1768, 3510,
+			1767, 3510,
+			1767, 3501,
+			1768, 3501,
+			1768, 3500,
+			1773, 3500,
+			1773, 3499,
+			1781, 3499,
+			1781, 3500,
+			1784, 3500,
+			1784, 3504,
+			1785, 3504,
+			1785, 3510,
+			1783, 3510,
+			1783, 3513,
+			1777, 3513,
+			1777, 3514);
+
+		// Hosidius Town Square
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1771, 3607,
+			1771, 3591,
+			1755, 3591,
+			1755, 3607);
+
+		// Hosidius Pub
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1747, 3618,
+			1750, 3618,
+			1750, 3621,
+			1745, 3621,
+			1745, 3623,
+			1737, 3623,
+			1737, 3619,
+			1740, 3619,
+			1740, 3614,
+			1737, 3614,
+			1737, 3610,
+			1745, 3610,
+			1745, 3612,
+			1750, 3612,
+			1750, 3615,
+			1747, 3615);
+
+		// Hosidius Cow Pen
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1743, 3642,
+			1746, 3639,
+			1746, 3636,
+			1747, 3635,
+			1751, 3635,
+			1752, 3634,
+			1755, 3634,
+			1756, 3635,
+			1757, 3635,
+			1758, 3636,
+			1764, 3636,
+			1764, 3635,
+			1765, 3635,
+			1766, 3636,
+			1766, 3637,
+			1767, 3638,
+			1767, 3644,
+			1766, 3645,
+			1765, 3645,
+			1764, 3646,
+			1760, 3646,
+			1759, 3647,
+			1750, 3647,
+			1750, 3646,
+			1747, 3646);
+
+		// Kourend Saltpetre pit (southernmost)
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1700, 3513,
+			1700, 3506,
+			1704, 3506,
+			1704, 3513);
+
+		// Kourend Saltpetre River Hos (Northeast bank)
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			1699, 3559,
+			1705, 3562,
+			1709, 3562,
+			1719, 3557,
+			1721, 3553,
+			1721, 3549,
+			1721, 3547,
+			1719, 3542,
+			1699, 3542);
+
+		// Isle of Souls northern rare trees (Teak & Mahogany)
+		addPolygonOnPlane(MULTICOMBAT, 0,
+			2176, 3008,
+			2176, 2987,
+			2177, 2987,
+			2177, 2986,
+			2178, 2986,
+			2178, 2985,
+			2179, 2985,
+			2179, 2982,
+			2179, 2981,
+			2180, 2981,
+			2180, 2980,
+			2181, 2980,
+			2181, 2979,
+			2183, 2979,
+			2183, 2978,
+			2184, 2978,
+			2185, 2978,
+			2185, 2977,
+			2186, 2977,
+			2186, 2976,
+			2187, 2976,
+			2187, 2975,
+			2192, 2975,
+			2192, 2971,
+			2198, 2971,
+			2199, 2971,
+			2199, 2972,
+			2200, 2972,
+			2200, 2973,
+			2201, 2973,
+			2201, 2974,
+			2205, 2974,
+			2205, 2978,
+			2206, 2978,
+			2206, 2979,
+			2207, 2979,
+			2207, 2980,
+			2207, 2981,
+			2208, 2981,
+			2208, 2984,
+			2209, 2984,
+			2209, 2992,
+			2224, 2992,
+			2224, 3008);
+
+		// Weiss
+		addPolygonTo(MULTICOMBAT,
+			2861, 3949,
+			2871, 3949,
+			2872, 3950,
+			2877, 3950,
+			2877, 3949,
+			2878, 3949,
+			2879, 3949,
+			2879, 3948,
+			2883, 3948,
+			2883, 3949,
+			2885, 3949,
+			2885, 3950,
+			2888, 3950,
+			2888, 3949,
+			2892, 3949,
+			2892, 3948,
+			2893, 3948,
+			2893, 3947,
+			2894, 3947,
+			2894, 3947,
+			2894, 3933,
+			2892, 3933,
+			2892, 3929,
+			2893, 3929,
+			2893, 3928,
+			2892, 3928,
+			2892, 3927,
+			2892, 3923,
+			2892, 3923,
+			2890, 3921,
+			2886, 3921,
+			2886, 3922,
+			2882, 3922,
+			2882, 3921,
+			2878, 3921,
+			2877, 3920,
+			2876, 3920,
+			2875, 3919,
+			2874, 3919,
+			2873, 3920,
+			2863, 3920,
+			2862, 3919,
+			2858, 3919,
+			2856, 3917,
+			2853, 3917,
+			2853, 3918,
+			2850, 3918,
+			2850, 3919,
+			2849, 3919,
+			2849, 3920,
+			2847, 3920,
+			2847, 3928,
+			2849, 3930,
+			2850, 3930,
+			2851, 3931,
+			2851, 3938,
+			2850, 3938,
+			2850, 3942,
+			2852, 3944,
+			2852, 3947,
+			2854, 3947,
+			2855, 3948,
+			2860, 3948,
+			2861, 3949);
+
+		// Arandar
+		addPolygonTo(MULTICOMBAT,
+			2386, 3328,
+			2368, 3328,
+			2368, 3317,
+			2386, 3317);
+
+		// South East of Gnome Stronghold
+		addPolygonTo(MULTICOMBAT,
+			2368, 3350,
+			2368, 3392,
+			2353, 3392,
+			2353, 3350);
+
+		// South East of Port Phasmatys
+		addPolygonTo(MULTICOMBAT,
+			3708, 3455,
+			3702, 3455,
+			3702, 3454,
+			3692, 3454,
+			3692, 3453,
+			3689, 3453,
+			3689, 3451,
+			3685, 3451,
+			3685, 3450,
+			3684, 3450,
+			3684, 3449,
+			3683, 3449,
+			3683, 3447,
+			3682, 3447,
+			3682, 3444,
+			3683, 3444,
+			3683, 3440,
+			3684, 3440,
+			3684, 3439,
+			3685, 3439,
+			3685, 3430,
+			3708, 3430);
+
+		// South West of Port Phasmatys
+		addPolygonTo(MULTICOMBAT,
+			3646, 3451,
+			3655, 3451,
+			3655, 3453,
+			3660, 3453,
+			3660, 3452,
+			3661, 3452,
+			3661, 3451,
+			3661, 3451,
+			3662, 3451,
+			3662, 3450,
+			3663, 3450,
+			3663, 3449,
+			3664, 3449,
+			3664, 3448,
+			3665, 3448,
+			3665, 3442,
+			3664, 3442,
+			3664, 3441,
+			3663, 3441,
+			3663, 3441,
+			3663, 3440,
+			3662, 3440,
+			3662, 3437,
+			3661, 3437,
+			3661, 3436,
+			3660, 3436,
+			3660, 3436,
+			3660, 3435,
+			3659, 3435,
+			3659, 3434,
+			3658, 3434,
+			3658, 3433,
+			3657, 3433,
+			3657, 3432,
+			3656, 3432,
+			3656, 3431,
+			3656, 3425,
+			3646, 3415,
+			3630, 3415,
+			3630, 3420,
+			3606, 3420,
+			3606, 3415,
+			3605, 3415,
+			3605, 3414,
+			3604, 3414,
+			3604, 3413,
+			3603, 3413,
+			3603, 3412,
+			3602, 3412,
+			3599, 3412,
+			3599, 3411,
+			3597, 3411,
+			3597, 3411,
+			3597, 3410,
+			3592, 3410,
+			3592, 3409,
+			3587, 3409,
+			3587, 3410,
+			3586, 3410,
+			3586, 3411,
+			3585, 3411,
+			3585, 3414,
+			3585, 3455,
+			3646, 3455);
+
+		// East of Nature Grotto
+		addPolygonTo(MULTICOMBAT,
+			3456, 3392,
+			3456, 3328,
+			3520, 3328,
+			3520, 3392);
+
+		// Burgh de Rott general store roof
+		addPolygonOnPlane(MULTICOMBAT, 2,
+			3520, 3248,
+			3512, 3248,
+			3520, 3232,
+			3512, 3232);
+
+		// Burgh de Rott docks
+		addPolygonTo(MULTICOMBAT,
+			3520, 3200,
+			3587, 3200,
+			3587, 3160,
+			3520, 3160);
 	}
 
 	private static void defineDeadmanSafeZones()
@@ -3203,12 +3645,23 @@ public class MapLocations
 			1514, 3424,
 			1514, 3415);
 
-		// Chambers of xeric bank
+		// CoX Bank / Mount Quidamortem
 		addPolygonOnPlane(PVP_WORLD_SAFE_ZONES, 0,
-			1252, 3570,
-			1252, 3574,
-			1257, 3574,
-			1257, 3570);
+			1270, 3564,
+			1270, 3568,
+			1268, 3569,
+			1264, 3573,
+			1264, 3580,
+			1219, 3580,
+			1219, 3555,
+			1228, 3545,
+			1240, 3545,
+			1245, 3548,
+			1250, 3551,
+			1258, 3551,
+			1264, 3557,
+			1266, 3557,
+			1266, 3560);
 
 		// Arceuus bank
 		addPolygonOnPlane(PVP_WORLD_SAFE_ZONES, 0,
@@ -3284,7 +3737,7 @@ public class MapLocations
 			1683, 3618,
 			1683, 3620,
 			1684, 3621,
-			1684, 3632,
+			1684, 3623,
 			1675, 3623,
 			1675, 3621,
 			1676, 3620,
@@ -3501,10 +3954,10 @@ public class MapLocations
 
 		// Farming guild bank high tier
 		addPolygonOnPlane(PVP_WORLD_SAFE_ZONES, 0,
+			1250, 3759,
 			1250, 3758,
 			1248, 3758,
-			1248, 3739,
-			1250, 3759);
+			1248, 3759);
 
 		// Farming guild bank low tier
 		addPolygonOnPlane(PVP_WORLD_SAFE_ZONES, 0,
@@ -3529,6 +3982,27 @@ public class MapLocations
 			1750, 3602,
 			1751, 3601,
 			1753, 3601);
+
+		// Soul Wars Bank
+		addPolygonOnPlane(PVP_WORLD_SAFE_ZONES, 0,
+			2202, 2864,
+			2202, 2855,
+			2219, 2855,
+			2219, 2864);
+
+		// Unkah (Tempoross) Bank
+		addPolygonOnPlane(PVP_WORLD_SAFE_ZONES, 0,
+			3160, 2837,
+			3160, 2834,
+			3155, 2834,
+			3155, 2837);
+
+		// Ruins of Camdozaal Bank
+		addPolygonOnPlane(PVP_WORLD_SAFE_ZONES, 0,
+			2981, 5795,
+			2971, 5795,
+			2971, 5803,
+			2981, 5803);
 	}
 
 	private static void defineWilderness()
@@ -3571,6 +4045,23 @@ public class MapLocations
 			}
 			accumulatedY += levelTiles;
 		}
+	}
+
+	private static void defineWildernessTeleportLines()
+	{
+		// Surface Wilderness
+		addPolygonTo(WILDERNESS_TELEPORT_LINES,
+			2944, 3680,
+			3392, 3680,
+			3392, 3760,
+			2944, 3760);
+
+		// Instanced Wilderness (Dungeons, Caves etc)
+		addPolygonTo(WILDERNESS_TELEPORT_LINES,
+			2932, 10080,
+			3454, 10080,
+			3454, 10160,
+			2932, 10160);
 	}
 
 

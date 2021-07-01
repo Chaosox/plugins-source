@@ -28,20 +28,9 @@ import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
 import net.runelite.client.config.ConfigItem;
 
-@ConfigGroup("areaeffects")
+@ConfigGroup("environmentAid")
 public interface EnvironmentAidConfig extends Config
 {
-	@ConfigItem(
-		name = "Enable mirror mode",
-		description = "Toggle mirror mode compatibility.",
-		position = 0,
-		keyName = "mirrorMode"
-	)
-	default boolean mirrorMode()
-	{
-		return false;
-	}
-
 	@ConfigItem(
 		keyName = "showBarrowsMinimap",
 		name = "Show Barrows Minimap",
@@ -76,12 +65,23 @@ public interface EnvironmentAidConfig extends Config
 	}
 
 	@ConfigItem(
-			position = 4,
-			keyName = "waterEffect",
-			name = "Underwater",
-			description = "Removes the on-screen water effect in when diving underwater"
+		position = 4,
+		keyName = "waterEffect",
+		name = "Remove Underwater",
+		description = "Removes the on-screen water effect in when diving underwater"
 	)
 	default boolean waterEffect()
+	{
+		return false;
+	}
+
+	@ConfigItem(
+		position = 5,
+		keyName = "scryPool",
+		name = "Remove Scry Pool",
+		description = "Removes the on-screen Scry Pool effect"
+	)
+	default boolean scryPool()
 	{
 		return false;
 	}
